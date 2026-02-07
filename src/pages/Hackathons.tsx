@@ -1,9 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Layers } from 'lucide-react';
+import { Layers, RefreshCw, Play, Clock } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { HackathonCard } from '@/components/hackathons/HackathonCard';
 import { HackathonFiltersComponent, HackathonFilters } from '@/components/hackathons/HackathonFilters';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -15,6 +18,8 @@ export default function HackathonsPage() {
   const [hackathons, setHackathons] = useState<Hackathon[]>([]);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [activeTab, setActiveTab] = useState('upcoming');
   const [filters, setFilters] = useState<HackathonFilters>({
     search: '',
     source: null,
@@ -36,7 +41,6 @@ export default function HackathonsPage() {
       .from('hackathons')
       .select('*')
       .eq('is_active', true)
-      .gte('registration_deadline', new Date().toISOString())
       .order('registration_deadline', { ascending: true });
 
     if (error) {
@@ -57,6 +61,36 @@ export default function HackathonsPage() {
 
     if (!error && data) {
       setSavedIds(new Set(data.map((s) => s.hackathon_id)));
+    }
+  };
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-hackathons');
+      
+      if (error) {
+        toast({
+          title: 'Sync failed',
+          description: error.message,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Sync complete!',
+          description: data.message,
+        });
+        // Refresh hackathons list
+        await fetchHackathons();
+      }
+    } catch (err) {
+      toast({
+        title: 'Sync failed',
+        description: 'Could not sync hackathons',
+        variant: 'destructive',
+      });
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -111,8 +145,29 @@ export default function HackathonsPage() {
     }
   };
 
-  const filteredHackathons = useMemo(() => {
-    let result = [...hackathons];
+  // Categorize hackathons
+  const categorizedHackathons = useMemo(() => {
+    const now = new Date();
+    
+    const ongoing = hackathons.filter((h) => {
+      const start = new Date(h.start_date);
+      const end = new Date(h.end_date);
+      return start <= now && end >= now;
+    });
+
+    const upcoming = hackathons.filter((h) => {
+      const start = new Date(h.start_date);
+      return start > now;
+    });
+
+    const saved = hackathons.filter((h) => savedIds.has(h.id));
+
+    return { ongoing, upcoming, saved };
+  }, [hackathons, savedIds]);
+
+  // Apply filters to current tab's hackathons
+  const getFilteredHackathons = (list: Hackathon[]) => {
+    let result = [...list];
 
     // Search filter
     if (filters.search) {
@@ -154,7 +209,20 @@ export default function HackathonsPage() {
     }
 
     return result;
-  }, [hackathons, filters]);
+  };
+
+  const currentHackathons = useMemo(() => {
+    switch (activeTab) {
+      case 'ongoing':
+        return getFilteredHackathons(categorizedHackathons.ongoing);
+      case 'upcoming':
+        return getFilteredHackathons(categorizedHackathons.upcoming);
+      case 'saved':
+        return getFilteredHackathons(categorizedHackathons.saved);
+      default:
+        return getFilteredHackathons(categorizedHackathons.upcoming);
+    }
+  }, [activeTab, categorizedHackathons, filters]);
 
   return (
     <MainLayout>
@@ -165,14 +233,25 @@ export default function HackathonsPage() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="gradient-primary rounded-lg p-2">
-              <Layers className="h-5 w-5 text-primary-foreground" />
+          <div className="flex items-center justify-between flex-wrap gap-4 mb-2">
+            <div className="flex items-center gap-3">
+              <div className="gradient-primary rounded-lg p-2">
+                <Layers className="h-5 w-5 text-primary-foreground" />
+              </div>
+              <h1 className="text-3xl font-bold">Hackathons</h1>
             </div>
-            <h1 className="text-3xl font-bold">Hackathons</h1>
+            <Button
+              variant="outline"
+              onClick={handleSync}
+              disabled={syncing}
+              className="gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+              {syncing ? 'Syncing...' : 'Sync Latest'}
+            </Button>
           </div>
           <p className="text-muted-foreground">
-            Discover upcoming hackathons from top platforms
+            Discover upcoming hackathons from MLH, Devfolio, Unstop, Devpost & more
           </p>
         </motion.div>
 
@@ -181,45 +260,127 @@ export default function HackathonsPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="mb-8"
+          className="mb-6"
         >
           <HackathonFiltersComponent filters={filters} onFiltersChange={setFilters} />
         </motion.div>
 
-        {/* Results Count */}
-        <p className="text-sm text-muted-foreground mb-6">
-          Showing {filteredHackathons.length} hackathon{filteredHackathons.length !== 1 ? 's' : ''}
-        </p>
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full max-w-md grid-cols-3">
+            <TabsTrigger value="ongoing" className="gap-2">
+              <Play className="h-4 w-4" />
+              Ongoing
+              <Badge variant="secondary" className="ml-1">
+                {categorizedHackathons.ongoing.length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="upcoming" className="gap-2">
+              <Clock className="h-4 w-4" />
+              Upcoming
+              <Badge variant="secondary" className="ml-1">
+                {categorizedHackathons.upcoming.length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="saved" className="gap-2">
+              Saved
+              <Badge variant="secondary" className="ml-1">
+                {categorizedHackathons.saved.length}
+              </Badge>
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Hackathon Grid */}
-        {loading ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="h-80 rounded-xl bg-secondary animate-pulse" />
-            ))}
-          </div>
-        ) : filteredHackathons.length > 0 ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 stagger-children">
-            {filteredHackathons.map((hackathon) => (
-              <HackathonCard
-                key={hackathon.id}
-                hackathon={hackathon}
-                isSaved={savedIds.has(hackathon.id)}
-                onSave={handleSave}
-                onUnsave={handleUnsave}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-16">
-            <Layers className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No hackathons found</h3>
-            <p className="text-muted-foreground">
-              Try adjusting your filters or check back later
-            </p>
-          </div>
-        )}
+          <p className="text-sm text-muted-foreground">
+            Showing {currentHackathons.length} hackathon{currentHackathons.length !== 1 ? 's' : ''}
+          </p>
+
+          {/* Hackathon Grid */}
+          {loading ? (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="h-80 rounded-xl bg-secondary animate-pulse" />
+              ))}
+            </div>
+          ) : (
+            <>
+              <TabsContent value="ongoing" className="mt-0">
+                <HackathonGrid
+                  hackathons={currentHackathons}
+                  savedIds={savedIds}
+                  onSave={handleSave}
+                  onUnsave={handleUnsave}
+                  emptyMessage="No ongoing hackathons right now"
+                  emptyDescription="Check the upcoming tab for future events"
+                />
+              </TabsContent>
+
+              <TabsContent value="upcoming" className="mt-0">
+                <HackathonGrid
+                  hackathons={currentHackathons}
+                  savedIds={savedIds}
+                  onSave={handleSave}
+                  onUnsave={handleUnsave}
+                  emptyMessage="No upcoming hackathons found"
+                  emptyDescription="Try adjusting your filters or check back later"
+                />
+              </TabsContent>
+
+              <TabsContent value="saved" className="mt-0">
+                <HackathonGrid
+                  hackathons={currentHackathons}
+                  savedIds={savedIds}
+                  onSave={handleSave}
+                  onUnsave={handleUnsave}
+                  emptyMessage="No saved hackathons"
+                  emptyDescription="Save hackathons to track them here"
+                />
+              </TabsContent>
+            </>
+          )}
+        </Tabs>
       </div>
     </MainLayout>
+  );
+}
+
+interface HackathonGridProps {
+  hackathons: Hackathon[];
+  savedIds: Set<string>;
+  onSave: (id: string) => void;
+  onUnsave: (id: string) => void;
+  emptyMessage: string;
+  emptyDescription: string;
+}
+
+function HackathonGrid({ 
+  hackathons, 
+  savedIds, 
+  onSave, 
+  onUnsave, 
+  emptyMessage, 
+  emptyDescription 
+}: HackathonGridProps) {
+  if (hackathons.length === 0) {
+    return (
+      <div className="text-center py-16">
+        <Layers className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+        <h3 className="text-xl font-semibold mb-2">{emptyMessage}</h3>
+        <p className="text-muted-foreground">{emptyDescription}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 stagger-children">
+      {hackathons.map((hackathon) => (
+        <HackathonCard
+          key={hackathon.id}
+          hackathon={hackathon}
+          isSaved={savedIds.has(hackathon.id)}
+          onSave={onSave}
+          onUnsave={onUnsave}
+        />
+      ))}
+    </div>
   );
 }

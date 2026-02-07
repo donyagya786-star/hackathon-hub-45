@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { Clock, MapPin, ExternalLink, Bookmark, BookmarkCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -74,9 +75,11 @@ export function HackathonCard({
 
         <CardContent className="p-4">
           {/* Title */}
-          <h3 className="font-semibold text-lg mb-2 line-clamp-2 group-hover:text-primary transition-colors">
-            {hackathon.title}
-          </h3>
+          <Link to={`/hackathons/${hackathon.id}`}>
+            <h3 className="font-semibold text-lg mb-2 line-clamp-2 group-hover:text-primary transition-colors cursor-pointer">
+              {hackathon.title}
+            </h3>
+          </Link>
 
           {/* Description */}
           {hackathon.description && (

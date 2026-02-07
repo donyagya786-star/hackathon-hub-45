@@ -21,15 +21,15 @@ export function Footer() {
               We aggregate opportunities from top platforms so you never miss out.
             </p>
             <div className="flex gap-4 mt-4">
-              <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
+              <span className="text-muted-foreground">
                 <Github className="h-5 w-5" />
-              </a>
-              <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
+              </span>
+              <span className="text-muted-foreground">
                 <Twitter className="h-5 w-5" />
-              </a>
-              <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
+              </span>
+              <span className="text-muted-foreground">
                 <Linkedin className="h-5 w-5" />
-              </a>
+              </span>
             </div>
           </div>
 
