@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Clock, MapPin, ExternalLink, Bookmark, BookmarkCheck, Trophy, Layers } from 'lucide-react';
+import { Clock, MapPin, ExternalLink, Bookmark, BookmarkCheck, Trophy, Code2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -16,6 +16,33 @@ interface HackathonCardProps {
   onUnsave?: (hackathonId: string) => void;
   showSaveButton?: boolean;
 }
+
+// Generate a consistent color based on hackathon title
+const getGradientFromTitle = (title: string, source: string): string => {
+  const sourceGradients: Record<string, string[]> = {
+    mlh: ['from-blue-600 via-indigo-600 to-purple-700', 'from-cyan-500 via-blue-600 to-indigo-700', 'from-indigo-500 via-purple-600 to-pink-600'],
+    devfolio: ['from-emerald-500 via-teal-600 to-cyan-700', 'from-green-500 via-emerald-600 to-teal-700', 'from-teal-500 via-cyan-600 to-blue-600'],
+    unstop: ['from-orange-500 via-red-500 to-pink-600', 'from-amber-500 via-orange-600 to-red-600', 'from-rose-500 via-pink-600 to-purple-600'],
+    devpost: ['from-purple-500 via-violet-600 to-indigo-700', 'from-fuchsia-500 via-purple-600 to-blue-600', 'from-violet-500 via-purple-600 to-pink-600'],
+    community: ['from-amber-500 via-yellow-500 to-orange-600', 'from-lime-500 via-green-600 to-emerald-600', 'from-sky-500 via-blue-600 to-indigo-600'],
+  };
+  
+  const gradients = sourceGradients[source] || sourceGradients.community;
+  const hash = title.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return gradients[hash % gradients.length];
+};
+
+// Get icon pattern based on hackathon theme
+const getPatternStyle = (title: string): string => {
+  const patterns = [
+    'radial-gradient(circle at 20% 80%, rgba(255,255,255,0.1) 0%, transparent 50%)',
+    'radial-gradient(circle at 80% 20%, rgba(255,255,255,0.15) 0%, transparent 40%)',
+    'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 50%)',
+    'radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.2) 0%, transparent 60%)',
+  ];
+  const hash = title.length;
+  return patterns[hash % patterns.length];
+};
 
 export function HackathonCard({ 
   hackathon, 
@@ -39,17 +66,8 @@ export function HackathonCard({
     }
   };
 
-  // Generate placeholder gradient based on source
-  const getPlaceholderGradient = () => {
-    const gradients: Record<string, string> = {
-      mlh: 'from-blue-600 to-indigo-700',
-      devfolio: 'from-emerald-500 to-teal-600',
-      unstop: 'from-orange-500 to-red-600',
-      devpost: 'from-purple-500 to-pink-600',
-      community: 'from-amber-500 to-orange-600',
-    };
-    return gradients[hackathon.source] || 'from-primary to-accent';
-  };
+  const gradient = getGradientFromTitle(hackathon.title, hackathon.source);
+  const pattern = getPatternStyle(hackathon.title);
 
   return (
     <motion.div
@@ -59,56 +77,61 @@ export function HackathonCard({
       className="h-full"
     >
       <Card className="glass-card hover-lift overflow-hidden group h-full flex flex-col">
-        {/* Image Header - Fixed height with placeholder */}
+        {/* Image Header - Always shows something */}
         <Link to={`/hackathons/${hackathon.id}`} className="block">
-          <div className="relative h-40 overflow-hidden">
+          <div className="relative h-44 overflow-hidden">
             {hackathon.image_url ? (
               <img
                 src={hackathon.image_url}
                 alt={hackathon.title}
                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                 onError={(e) => {
-                  // Hide broken images and show placeholder
-                  e.currentTarget.style.display = 'none';
-                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                  const target = e.currentTarget;
+                  target.style.display = 'none';
+                  const placeholder = target.parentElement?.querySelector('.placeholder-bg');
+                  if (placeholder) placeholder.classList.remove('hidden');
                 }}
               />
             ) : null}
-            {/* Placeholder gradient background */}
-            <div className={cn(
-              'absolute inset-0 bg-gradient-to-br flex items-center justify-center',
-              getPlaceholderGradient(),
-              hackathon.image_url ? 'hidden' : ''
-            )}>
-              <Layers className="h-12 w-12 text-white/50" />
+            
+            {/* Beautiful gradient placeholder */}
+            <div 
+              className={cn(
+                'absolute inset-0 bg-gradient-to-br flex flex-col items-center justify-center transition-transform duration-500 group-hover:scale-105 placeholder-bg',
+                gradient,
+                hackathon.image_url ? 'hidden' : ''
+              )}
+              style={{ backgroundImage: pattern }}
+            >
+              <Code2 className="h-12 w-12 text-white/30 mb-2" />
+              <span className="text-white/50 text-xs font-medium tracking-wider uppercase">
+                {hackathon.source}
+              </span>
             </div>
-            <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
+            
+            {/* Overlay gradient */}
+            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
             
             {/* Source Badge */}
-            <Badge className={cn('absolute top-3 left-3 z-10', source.color)}>
+            <Badge className={cn('absolute top-3 left-3 z-10 shadow-lg', source.color)}>
               {source.name}
             </Badge>
 
             {/* Mode Badge */}
-            <Badge variant="secondary" className="absolute top-3 right-3 z-10">
+            <Badge variant="secondary" className="absolute top-3 right-3 z-10 shadow-lg bg-background/80 backdrop-blur-sm">
               {mode.icon} {mode.label}
             </Badge>
+
+            {/* Title overlay on image */}
+            <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
+              <h3 className="font-bold text-lg text-foreground line-clamp-2 drop-shadow-sm">
+                {hackathon.title}
+              </h3>
+            </div>
           </div>
         </Link>
 
         <CardContent className="p-4 flex-1 flex flex-col">
-          {/* Title - Fixed 2 lines */}
-          <Link to={`/hackathons/${hackathon.id}`}>
-            <h3 className="font-semibold text-lg mb-2 line-clamp-2 min-h-[3.5rem] group-hover:text-primary transition-colors cursor-pointer">
-              {hackathon.title}
-            </h3>
-          </Link>
-
-          {/* Description - Fixed 2 lines */}
-          <p className="text-sm text-muted-foreground mb-3 line-clamp-2 min-h-[2.5rem]">
-            {hackathon.description || 'Join this exciting hackathon and build something amazing!'}
-          </p>
-
           {/* Countdown */}
           <div className={cn(
             'inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium border mb-3 w-fit',
@@ -120,20 +143,20 @@ export function HackathonCard({
             {formatCountdown(timeLeft)}
           </div>
 
-          {/* Location - Fixed height */}
-          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3 min-h-[1.25rem]">
-            <MapPin className="h-4 w-4 shrink-0" />
+          {/* Location */}
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+            <MapPin className="h-4 w-4 shrink-0 text-primary" />
             <span className="line-clamp-1">{hackathon.location || 'Online / TBA'}</span>
           </div>
 
-          {/* Prize Pool - Fixed height */}
-          <div className="flex items-center gap-2 text-sm font-medium mb-3 min-h-[1.25rem]">
+          {/* Prize Pool */}
+          <div className="flex items-center gap-2 text-sm font-semibold mb-3">
             <Trophy className="h-4 w-4 text-accent shrink-0" />
-            <span>{hackathon.prize_pool || 'Prizes TBA'}</span>
+            <span className="text-accent">{hackathon.prize_pool || 'Prizes TBA'}</span>
           </div>
 
-          {/* Skills - Fixed height container with overflow */}
-          <div className="flex flex-wrap gap-1.5 min-h-[2rem] mt-auto">
+          {/* Skills */}
+          <div className="flex flex-wrap gap-1.5 mt-auto">
             {hackathon.skills && hackathon.skills.length > 0 ? (
               <>
                 {hackathon.skills.slice(0, 3).map((skill) => (
@@ -142,7 +165,7 @@ export function HackathonCard({
                   </span>
                 ))}
                 {hackathon.skills.length > 3 && (
-                  <span className="skill-tag text-xs">+{hackathon.skills.length - 3}</span>
+                  <span className="skill-tag text-xs opacity-70">+{hackathon.skills.length - 3}</span>
                 )}
               </>
             ) : (
@@ -151,7 +174,7 @@ export function HackathonCard({
           </div>
         </CardContent>
 
-        <CardFooter className="p-4 pt-0 flex gap-2 mt-auto">
+        <CardFooter className="p-4 pt-0 flex gap-2">
           <Button
             variant="default"
             className="flex-1 gradient-primary"
@@ -176,7 +199,7 @@ export function HackathonCard({
               onClick={handleSaveClick}
               className={cn(
                 'shrink-0',
-                isSaved && 'text-primary border-primary'
+                isSaved && 'text-primary border-primary bg-primary/10'
               )}
             >
               {isSaved ? (
