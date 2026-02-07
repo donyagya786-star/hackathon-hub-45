@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/hooks/useTheme";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Hackathons from "./pages/Hackathons";
+import HackathonDetail from "./pages/HackathonDetail";
 import Dashboard from "./pages/Dashboard";
 import TeamMatch from "./pages/TeamMatch";
 import Notifications from "./pages/Notifications";
@@ -28,6 +29,7 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/hackathons" element={<Hackathons />} />
+              <Route path="/hackathons/:id" element={<HackathonDetail />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/team-match" element={<TeamMatch />} />
               <Route path="/notifications" element={<Notifications />} />

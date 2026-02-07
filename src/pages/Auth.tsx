@@ -59,8 +59,13 @@ export default function AuthPage() {
 
         const { error } = await signUp(email, password, fullName);
         if (error) {
-          if (error.message.includes('already registered')) {
-            setError('This email is already registered. Please sign in instead.');
+          const errorMsg = error.message.toLowerCase();
+          if (errorMsg.includes('already registered') || errorMsg.includes('already exists') || errorMsg.includes('user already')) {
+            setError('An account with this email already exists. Please sign in instead.');
+            // Show sign in option
+            setTimeout(() => setMode('signin'), 2000);
+          } else if (errorMsg.includes('email') && errorMsg.includes('confirm')) {
+            setSuccess('Account created! Please check your email to verify your account.');
           } else {
             setError(error.message);
           }
