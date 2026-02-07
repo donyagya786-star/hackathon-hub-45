@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Clock, MapPin, Bookmark, BookmarkCheck, Trophy } from 'lucide-react';
+import { useState } from 'react';
+import { Clock, MapPin, Bookmark, BookmarkCheck, Trophy, Code2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -67,12 +68,16 @@ export function HackathonCard({
   showSaveButton = true 
 }: HackathonCardProps) {
   const navigate = useNavigate();
+  const [imageError, setImageError] = useState(false);
   const timeLeft = useCountdown(hackathon.registration_deadline);
   const countdownStatus = getCountdownStatus(timeLeft);
   const source = HACKATHON_SOURCES[hackathon.source];
   const mode = HACKATHON_MODES[hackathon.mode];
   const placeholderImage = getPlaceholderImage(hackathon.title, hackathon.source);
   const gradientColors = getGradientColors(hackathon.source);
+  
+  // Use actual image if available and not errored, otherwise use placeholder
+  const hasRealImage = hackathon.image_url && !imageError;
 
   const handleCardClick = () => {
     navigate(`/hackathons/${hackathon.id}`);
@@ -88,7 +93,9 @@ export function HackathonCard({
     }
   };
 
-
+  const handleImageError = () => {
+    setImageError(true);
+  };
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -100,35 +107,41 @@ export function HackathonCard({
         className="glass-card hover-lift overflow-hidden group h-full flex flex-col cursor-pointer"
         onClick={handleCardClick}
       >
-        {/* Image Header - Large thumbnail, always visible */}
-        <div className="relative h-56 overflow-hidden">
-          {/* Gradient background layer - always shows */}
-          <div 
-            className="absolute inset-0"
-            style={{
-              background: `linear-gradient(135deg, ${gradientColors.from}, ${gradientColors.via}, ${gradientColors.to})`
-            }}
-          />
-          
-          {/* Pattern overlay for visual interest */}
-          <div 
-            className="absolute inset-0 opacity-20"
-            style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.2'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-            }}
-          />
-          
-          {/* Large centered image/icon */}
-          <div className="absolute inset-0 flex items-center justify-center p-4">
+        {/* Image Header - Large thumbnail */}
+        <div className="relative h-52 overflow-hidden">
+          {hasRealImage ? (
+            /* Show actual hackathon image */
             <img
-              src={placeholderImage}
+              src={hackathon.image_url!}
               alt={hackathon.title}
-              className="w-28 h-28 object-contain drop-shadow-xl"
+              className="absolute inset-0 w-full h-full object-cover"
+              onError={handleImageError}
             />
-          </div>
+          ) : (
+            /* Fallback: Gradient with pattern and icon */
+            <>
+              <div 
+                className="absolute inset-0"
+                style={{
+                  background: `linear-gradient(135deg, ${gradientColors.from}, ${gradientColors.via}, ${gradientColors.to})`
+                }}
+              />
+              <div 
+                className="absolute inset-0 opacity-20"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.2'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+                }}
+              />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-24 h-24 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
+                  <Code2 className="h-12 w-12 text-white" />
+                </div>
+              </div>
+            </>
+          )}
           
           {/* Overlay gradient for text readability */}
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
           
           {/* Source Badge */}
           <div className={cn('absolute top-3 left-3 z-10 px-2.5 py-1 rounded-full text-xs font-semibold shadow-lg', source.color)}>
